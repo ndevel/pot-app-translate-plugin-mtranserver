@@ -3,7 +3,7 @@
   "plugin_type": "translate",
   "icon": "mtranserver.svg",
   "display": "MTranServer翻译服务",
-  "homepage": "https://github.com/pot-app/pot-app-translate-plugin-mtranserver",
+  "homepage": "https://github.com/Mars-Sea/pot-app-translate-plugin-mtranserver",
   "needs": [{ "key": "apiUrl", "display": "API地址" }, { "key": "token", "display": "API密钥" }],
   "language": {
     "auto": "auto",
