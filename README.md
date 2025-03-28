@@ -12,6 +12,9 @@ MTranServer 翻译插件是基于 Pot 插件框架开发的一款高效翻译工
 ## 3. 安装指南
 
 1. 下载最新版本的插件安装包
+   - 从 [actions](https://github.com/Mars-Sea/pot-app-translate-plugin-mtranserver/actions) 下载最新版本的插件包
+   - 解压插件包
+
 2. 在 Pot 应用中：
    - 打开翻译服务
    - 选择"添加外部插件"
