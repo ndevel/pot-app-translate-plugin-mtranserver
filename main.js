@@ -14,7 +14,7 @@ function processUrl(url) {
 }
 
 async function translate(text, from, to, options) {
-    const { config, utils } = options;
+    const { config, utils, detect } = options;
     const { tauriFetch: fetch } = utils;
     let { apiUrl: url, token } = config;
     
@@ -31,6 +31,10 @@ async function translate(text, from, to, options) {
         ...(token && { 'Authorization': token })
     };
     
+    // 判断源语言类型，如果是自动检测则调用detect函数
+    if (from === 'auto') {
+        from = detect;  
+    }
     const body = { from, to, text };
     
     const res = await fetch(`${url}/translate`, {
@@ -121,6 +125,10 @@ async function batchTranslate(texts, from, to, options) {
         'Authorization': token
     };
     
+    // 判断源语言类型，如果是自动检测则调用detect函数
+    if (from === 'auto') {
+        from = detect;
+    }
     const body = {
         from,
         to,
