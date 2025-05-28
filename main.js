@@ -13,12 +13,33 @@ function processUrl(url) {
         .startsWith("http") ? url : `http://${url}`;
 }
 
+// 统一的错误处理函数
+function handleError(message, status, data) {
+    throw `请求失败\n${message}\nHTTP状态码: ${status}\n${JSON.stringify(data)}`;
+}
+
+// 验证配置
+function validateConfig(config) {
+    if (!config) {
+        throw '配置对象不能为空';
+    }
+    if (!config.apiUrl) {
+        throw 'API URL不能为空';
+    }
+}
+
 async function translate(text, from, to, options) {
     const { config, utils, detect } = options;
     const { tauriFetch: fetch } = utils;
-    let { apiUrl: url, token } = config;
     
+    validateConfig(config);
+    let { apiUrl: url, token } = config;
     url = processUrl(url);
+    
+    // 验证输入参数
+    if (typeof text !== 'string' || !text.trim()) {
+        throw '翻译文本不能为空';
+    }
     
     // 先进行健康检查
     const healthCheck = await checkHealth(options);
@@ -45,50 +66,21 @@ async function translate(text, from, to, options) {
     
     if (res.ok) {
         const result = res.data;
-        return result?.result || Promise.reject('服务器返回数据格式错误');
+        return result?.result || handleError('服务器返回数据格式错误', res.status, res.data);
     } else {
-        throw `请求失败\nHTTP状态码: ${res.status}\n${JSON.stringify(res.data)}`;
-    }
-}
-
-// 获取服务版本
-async function getVersion(options) {
-    const { config, utils } = options;
-    let { apiUrl: url } = config;
-    const { http } = utils;
-    const { fetch } = http;
-    
-    if (url === undefined || url.length === 0) {
-        url = "http://localhost:8989";
-    }
-    
-    if (!url.startsWith("http")) {
-        url = `http://${url}`;
-    }
-    
-    const res = await fetch(`${url}/version`);
-    
-    if (res.ok) {
-        return res.data.version;
-    } else {
-        throw `Http Request Error\nHttp Status: ${res.status}\n${JSON.stringify(res.data)}`;
+        handleError('翻译请求失败', res.status, res.data);
     }
 }
 
 // 获取支持的语言对
 async function getModels(options) {
     const { config, utils } = options;
-    let { apiUrl: url, token } = config;
     const { http } = utils;
     const { fetch } = http;
     
-    if (url === undefined || url.length === 0) {
-        url = "http://localhost:8989";
-    }
-    
-    if (!url.startsWith("http")) {
-        url = `http://${url}`;
-    }
+    validateConfig(config);
+    let { apiUrl: url, token } = config;
+    url = processUrl(url);
     
     const headers = {
         'Authorization': token
@@ -101,23 +93,23 @@ async function getModels(options) {
     if (res.ok) {
         return res.data.models;
     } else {
-        throw `Http Request Error\nHttp Status: ${res.status}\n${JSON.stringify(res.data)}`;
+        handleError('获取模型列表失败', res.status, res.data);
     }
 }
 
 // 批量翻译
 async function batchTranslate(texts, from, to, options) {
     const { config, utils } = options;
-    let { apiUrl: url, token } = config;
     const { http } = utils;
     const { fetch } = http;
     
-    if (url === undefined || url.length === 0) {
-        url = "http://localhost:8989";
-    }
+    validateConfig(config);
+    let { apiUrl: url, token } = config;
+    url = processUrl(url);
     
-    if (!url.startsWith("http")) {
-        url = `http://${url}`;
+    // 验证输入参数
+    if (!Array.isArray(texts) || texts.length === 0) {
+        throw '批量翻译文本不能为空';
     }
     
     const headers = {
@@ -146,20 +138,21 @@ async function batchTranslate(texts, from, to, options) {
         if (result && result.results) {
             return result.results;
         } else {
-            throw JSON.stringify(result);
+            handleError('服务器返回数据格式错误', res.status, result);
         }
     } else {
-        throw `Http Request Error\nHttp Status: ${res.status}\n${JSON.stringify(res.data)}`;
+        handleError('批量翻译请求失败', res.status, res.data);
     }
 }
 
 // 健康检查
 async function checkHealth(options) {
     const { config, utils } = options;
-    let { apiUrl: url } = config;
     const { http } = utils;
     const { fetch } = http;
     
+    validateConfig(config);
+    let { apiUrl: url } = config;
     url = processUrl(url);
     
     const res = await fetch(`${url}/health`);
@@ -167,6 +160,6 @@ async function checkHealth(options) {
     if (res.ok) {
         return res.data.status === 'ok';
     } else {
-        throw `健康检查失败\nHTTP状态码: ${res.status}\n${JSON.stringify(res.data)}`;
+        handleError('健康检查失败', res.status, res.data);
     }
 }
