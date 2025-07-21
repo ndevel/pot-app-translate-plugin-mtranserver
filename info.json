@@ -7,8 +7,8 @@
   "needs": [{ "key": "apiUrl", "display": "API地址" }, { "key": "token", "display": "API密钥" }],
   "language": {
     "auto": "auto",
-    "zh_cn": "zh",
-    "zh_tw": "zh",
+    "zh_cn": "zh-CN",
+    "zh_tw": "zh-TW",
     "en": "en",
     "ja": "ja",
     "ko": "ko",
