@@ -26,10 +26,10 @@ function handleError(message, status, data) {
 // 验证配置
 function validateConfig(config) {
     if (!config) {
-        throw '配置对象不能为空';
+        throw new Error('配置对象不能为空');
     }
     if (!config.apiUrl) {
-        throw 'API URL不能为空';
+        throw new Error('API URL不能为空');
     }
 }
 
@@ -42,13 +42,8 @@ async function translate(text, from, to, options) {
     
     // 验证输入参数
     if (typeof text !== 'string' || !text.trim()) {
-        throw new Error('翻译文本不能为空');
-    }
-    
-    // 先进行健康检查
-    const healthCheck = await checkHealth(options);
-    if (!healthCheck) {
-        throw new Error('翻译服务不可用，请检查服务状态');
+        // 对于空文本，直接返回空字符串，而不是抛出错误
+        return '';
     }
     
     const headers = {
@@ -58,7 +53,7 @@ async function translate(text, from, to, options) {
     
     // 判断源语言类型，如果是自动检测则调用detect函数
     if (from === 'auto') {
-        from = detect;  
+        from = detect;
     }
     const body = { from, to, text };
     
@@ -70,7 +65,12 @@ async function translate(text, from, to, options) {
     
     if (res.ok) {
         const result = await res.json();
-        return result?.result || handleError('服务器返回数据格式错误', res.status, result);
+        // 检查result和result.result是否存在，如果不存在则抛出错误
+        if (result && typeof result.result !== 'undefined') {
+            return result.result;
+        } else {
+            handleError('服务器返回数据格式错误', res.status, result);
+        }
     } else {
         const errorData = await res.json();
         handleError('翻译请求失败', res.status, errorData);
@@ -81,17 +81,23 @@ async function translate(text, from, to, options) {
 async function checkHealth(options) {
     const { config } = options;
     
-    validateConfig(config);
-    let { apiUrl: url } = config;
-    url = processUrl(url);
-    
-    const res = await window.fetch(`${url}/health`);
-    
-    if (res.ok) {
-        const data = await res.json();
-        return data.status === 'ok';
-    } else {
-        const errorData = await res.json();
-        handleError('健康检查失败', res.status, errorData);
+    try {
+        validateConfig(config);
+        let { apiUrl: url } = config;
+        url = processUrl(url);
+        
+        const res = await window.fetch(`${url}/health`);
+        
+        if (res.ok) {
+            const data = await res.json();
+            return data.status === 'ok';
+        }
+    } catch (error) {
+        // 任何错误都表示健康检查失败
+        console.error("健康检查失败:", error);
+        return false;
     }
+    
+    // 如果请求未成功（例如，HTTP状态码不是2xx），也视为失败
+    return false;
 }
