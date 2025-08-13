@@ -8,6 +8,7 @@ MTranServer 翻译插件是为 [Pot](https://pot-app.com/) 设计的一款翻译
 
 - **数据安全**：支持本地化部署翻译服务器，所有翻译请求均在您自己的网络环境中完成。
 - **配置灵活**：支持自定义 API 地址和 Token，满足个性化需求。
+- **高可靠性**：内置超时机制和错误处理，确保稳定运行。
 
 ## 安装与配置
 
@@ -32,6 +33,9 @@ MTranServer 翻译插件是为 [Pot](https://pot-app.com/) 设计的一款翻译
 - **翻译质量不符合预期？**
   - MTranServer 专注于翻译速度和私有化部署，其翻译质量可能与大型商业翻译引擎存在差异。
 
+- **翻译请求超时？**
+  - 网络延迟或服务器负载过高可能导致超时，请检查网络连接或服务器状态。
+
 ## 开发与构建
 
 如果您想自行修改或构建此插件，请按以下步骤操作：
@@ -41,6 +45,23 @@ MTranServer 翻译插件是为 [Pot](https://pot-app.com/) 设计的一款翻译
 3.  将 `info.json`, `mtranserver.svg`, `main.js` 三个文件打包成 ZIP 压缩包。
 4.  将压缩包的扩展名从 `.zip` 修改为 `.potext`。
 
+### 项目结构
+
+```
+├── info.json          # 插件配置文件
+├── main.js            # 插件核心逻辑
+├── mtranserver.svg    # 插件图标
+├── README.md          # 说明文档
+└── .github/workflows  # GitHub Actions 构建流程
+```
+
+### 代码规范
+
+- 遵循现代JavaScript ES6+ 语法
+- 使用 JSDoc 编写函数注释
+- 采用模块化设计，功能分离
+- 完善的错误处理机制
+
 ## 致谢
 
 - [MTranServer](https://github.com/xxnuo/MTranServer)
@@ -49,3 +70,11 @@ MTranServer 翻译插件是为 [Pot](https://pot-app.com/) 设计的一款翻译
 ## 贡献
 
 欢迎通过提交 [Issue](https://github.com/Mars-Sea/pot-app-translate-plugin-mtranserver/issues) 或 Pull Request 的方式为本项目做出贡献。
+
+### 贡献指南
+
+1. Fork 本仓库
+2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some amazing feature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 开启 Pull Request

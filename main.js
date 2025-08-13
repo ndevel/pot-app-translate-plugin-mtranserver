@@ -1,39 +1,69 @@
-// 提取URL处理逻辑
+/**
+ * 处理并标准化URL
+ * @param {string} url - 原始URL
+ * @returns {string} 标准化后的URL
+ */
 function processUrl(url) {
     // 设置默认URL
     const DEFAULT_URL = "http://localhost:8989";
 
     // 如果URL为空则返回默认值
-    if (!url?.trim()) {
+    if (!url || typeof url !== 'string' || !url.trim()) {
         return DEFAULT_URL;
     }
 
-    // 去除URL末尾的斜杠
-    const trimmedUrl = url.endsWith("/") ? url.slice(0, -1) : url;
+    // 去除URL末尾的所有斜杠
+    let trimmedUrl = url.trim();
+    while (trimmedUrl.endsWith("/")) {
+        trimmedUrl = trimmedUrl.slice(0, -1);
+    }
 
     // 确保有http(s)前缀
     if (trimmedUrl.startsWith("http://") || trimmedUrl.startsWith("https://")) {
         return trimmedUrl;
     }
 
+    // 默认使用http协议，但如果端口是443，使用https
+    if (trimmedUrl.includes(":443")) {
+        return `https://${trimmedUrl}`;
+    }
+    
     return `http://${trimmedUrl}`;
 }
 
-// 统一的错误处理函数
+/**
+ * 统一的错误处理函数
+ * @param {string} message - 错误消息
+ * @param {number} status - 状态码
+ * @param {Object} data - 错误数据
+ * @throws {Error} 包含详细信息的错误对象
+ */
 function handleError(message, status, data) {
     let errorMessage = `[MTranServer] ${message}`;
 
-    if (status) {
+    if (status !== undefined && status !== null) {
         if (status < 0) {
-            errorMessage += `\n错误码: ${status}`;
+            errorMessage += `
+错误码: ${status}`;
         } else {
-            errorMessage += `\nHTTP状态码: ${status}`;
+            errorMessage += `
+HTTP状态码: ${status}`;
         }
     }
 
-    if (data && Object.keys(data).length > 0) {
-        const details = data.message ? data.message : JSON.stringify(data);
-        errorMessage += `\n详细信息: ${details}`;
+    if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+        if (data.message && typeof data.message === 'string') {
+            errorMessage += `
+详细信息: ${data.message}`;
+        } else {
+            try {
+                errorMessage += `
+详细信息: ${JSON.stringify(data, null, 2)}`;
+            } catch (e) {
+                errorMessage += `
+详细信息: [无法序列化错误数据]`;
+            }
+        }
     }
 
     const error = new Error(errorMessage);
@@ -42,7 +72,11 @@ function handleError(message, status, data) {
     throw error;
 }
 
-// 验证配置
+/**
+ * 验证配置对象
+ * @param {Object} config - 配置对象
+ * @throws {Error} 配置错误
+ */
 function validateConfig(config) {
     if (!config) {
         throw new Error('配置对象不能为空');
@@ -52,57 +86,93 @@ function validateConfig(config) {
     }
 }
 
+/**
+ * 通用fetch函数，支持超时处理
+ * @param {string} url - 请求URL
+ * @param {Object} options - fetch选项
+ * @param {number} timeout - 超时时间（毫秒）
+ * @returns {Promise<Response>} fetch响应
+ */
+async function fetchWithTimeout(url, options = {}, timeout = 15000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+        const response = await window.fetch(url, {
+            ...options,
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        return response;
+    } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
+    }
+}
+
+/**
+ * 执行文本翻译
+ * @param {string} text - 待翻译文本
+ * @param {string} from - 源语言代码
+ * @param {string} to - 目标语言代码
+ * @param {Object} options - 翻译选项
+ * @param {Object} options.config - 插件配置
+ * @param {string} options.detect - 检测到的语言代码
+ * @returns {Promise<string>} 翻译结果
+ */
 async function translate(text, from, to, options) {
     const { config, detect } = options;
 
+    // 验证配置
     validateConfig(config);
+    
+    // 获取配置参数
     const { token } = config;
-    const url = processUrl(config.apiUrl);
+    const baseUrl = processUrl(config.apiUrl);
 
     // 验证输入参数
-    if (typeof text !== 'string' || !text.trim()) {
-        // 对于空文本，直接返回空字符串，而不是抛出错误
+    if (typeof text !== 'string') {
+        handleError('输入文本必须是字符串', -1, { type: typeof text, value: text });
+    }
+    
+    // 对于空文本或只包含空白字符的文本，直接返回空字符串
+    if (!text.trim()) {
         return '';
     }
 
+    // 构建请求头
     const headers = {
         'Content-Type': 'application/json',
         ...(token && { 'Authorization': token })
     };
 
-    // 如果源语言是'auto', 则使用Pot提供的检测语言
-    if (from === 'auto') {
-        from = detect;
-    }
-    const body = { from, to, text };
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15-second timeout
+    // 处理源语言
+    const sourceLang = from === 'auto' ? detect : from;
+    
+    // 构建请求体
+    const body = { from: sourceLang, to, text };
 
     try {
-        const res = await window.fetch(`${url}/translate`, {
+        // 发送翻译请求
+        const response = await fetchWithTimeout(`${baseUrl}/translate`, {
             method: 'POST',
             headers,
-            body: JSON.stringify(body),
-            signal: controller.signal
-        });
+            body: JSON.stringify(body)
+        }, 15000); // 15秒超时
 
-        clearTimeout(timeoutId);
-
-        if (res.ok) {
-            const result = await res.json();
-            // 检查result和result.result是否存在，如果不存在则抛出错误
+        if (response.ok) {
+            const result = await response.json();
+            // 检查结果格式
             if (result && typeof result.result !== 'undefined') {
                 return result.result;
             } else {
-                handleError('服务器返回数据格式错误', res.status, result);
+                handleError('服务器返回数据格式错误', response.status, result);
             }
         } else {
-            const errorData = await res.json();
-            handleError('服务器返回错误', res.status, errorData);
+            const errorData = await response.json();
+            handleError('服务器返回错误', response.status, errorData);
         }
     } catch (error) {
-        clearTimeout(timeoutId);
         if (error.name === 'AbortError') {
             handleError('翻译请求超时', -1, {}); // Using a custom status for timeout
         } else {
@@ -111,28 +181,30 @@ async function translate(text, from, to, options) {
     }
 }
 
-// 健康检查
+/**
+ * 检查翻译服务健康状态
+ * @param {Object} options - 选项
+ * @param {Object} options.config - 插件配置
+ * @returns {Promise<boolean>} 服务是否健康
+ */
 async function checkHealth(options) {
     const { config } = options;
 
     try {
+        // 验证配置
         validateConfig(config);
-        const url = processUrl(config.apiUrl);
+        
+        // 处理URL
+        const baseUrl = processUrl(config.apiUrl);
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5-second timeout
+        // 发送健康检查请求
+        const response = await fetchWithTimeout(`${baseUrl}/health`, {}, 5000); // 5秒超时
 
-        const res = await window.fetch(`${url}/health`, {
-            signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!res.ok) {
+        if (!response.ok) {
             return false;
         }
 
-        const data = await res.json();
+        const data = await response.json();
         return data.status === 'ok';
     } catch (error) {
         // 任何错误都表示健康检查失败
