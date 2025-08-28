@@ -147,7 +147,7 @@ async function translate(text, from, to, options) {
     };
 
     // 处理源语言
-    const sourceLang = from === 'auto' ? detect : from;
+    const sourceLang = from === 'auto' ? (detect === 'zh_cn' ? 'zh' : detect) : from;
     
     // 构建请求体
     const body = { from: sourceLang, to, text };
